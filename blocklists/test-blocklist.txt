@@ -1,0 +1,19 @@
+# Test blocklist for ad blocker
+# Common ad domains
+
+0.0.0.0 ads.google.com
+0.0.0.0 doubleclick.net
+0.0.0.0 googleadservices.com
+0.0.0.0 google-analytics.com
+0.0.0.0 googlesyndication.com
+0.0.0.0 adservice.google.com
+0.0.0.0 pagead2.googlesyndication.com
+
+# Facebook trackers
+0.0.0.0 facebook.com
+0.0.0.0 connect.facebook.net
+0.0.0.0 www.facebook.com
+
+# Other common trackers
+0.0.0.0 analytics.twitter.com
+0.0.0.0 pixel.reddit.com

@@ -1,8 +1,10 @@
 package server
 
 import (
+	"adblocker/internal/blocklist"
 	"adblocker/internal/resolver"
 	"log"
+	"net"
 
 	"github.com/miekg/dns"
 )
@@ -11,15 +13,21 @@ type DNSServer struct {
 	address string     // Listen address (e.g., "0.0.0.0:53")
 	server *dns.Server // poiner to dns.Server
 	resolver *resolver.UpstreamResolver // pointer to resolver
+	blocklist *blocklist.Blocklist
 }
 
 func NewDNSServer(address string, upstreamServer string) *DNSServer {
 	return &DNSServer{
 		address: address,
 		resolver: resolver.NewUpstreamResolver(upstreamServer),
+		blocklist: blocklist.NewBlocklist(),
 	}
 }
 
+// method to load blocklist
+func (s *DNSServer) LoadBlocklist(filepath string) error {
+	return s.blocklist.LoadFromFile(filepath)
+}
 
 // Start begins listening for DNS queries on the specified address.
 func (s *DNSServer) Start() error {
@@ -72,6 +80,16 @@ func (s *DNSServer) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 
 	log.Printf("Query for domain: %s, type: %s", domain, dns.TypeToString[qtype])
 
+	// Check Blocklist - This is the key part
+	if s.blocklist.IsBlocked(domain) {
+		log.Printf("BLOCKED: %s", domain)
+
+		// create response with 0.0.0.0
+		response := s.createBlockedResponse(r)
+		w.WriteMsg(response)
+		return
+	}
+
 	response, err := s.resolver.Resolve(r)
 	if err != nil {
 		log.Printf("Error resolving query %s: %v", domain, err)
@@ -82,4 +100,27 @@ func (s *DNSServer) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 
 	w.WriteMsg(response)
 	log.Printf("Resolved %s successfully", domain)
+}
+
+// createBlockedResponse returns a DNS response with 0.0.0.0
+func (s *DNSServer) createBlockedResponse(request *dns.Msg) *dns.Msg {
+	response := new(dns.Msg)
+	response.SetReply(request)
+
+	// Get the question
+	question := request.Question[0]
+
+	if question.Qtype == dns.TypeA {
+		rr := &dns.A{
+			Hdr: dns.RR_Header{
+				Name: question.Name,
+				Rrtype: dns.TypeA,
+				Class: dns.ClassINET,
+				Ttl: 300,
+			},
+			A: net.ParseIP("0.0.0.0"),
+		}
+		response.Answer = append(response.Answer, rr)
+	}
+	return response
 }
