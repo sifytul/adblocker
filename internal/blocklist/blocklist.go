@@ -1,6 +1,9 @@
 package blocklist
 
 import (
+	"bufio"
+	"log"
+	"os"
 	"strings"
 	"sync"
 )
@@ -17,6 +20,64 @@ func NewBlocklist() *Blocklist {
 		domains: make(map[string]bool),
 		count: 0,
 	}
+}
+
+func (b *Blocklist) LoadFromFile(filepath string) error {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return  err
+	}
+
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	lineNumber := 0
+
+	for scanner.Scan() {
+		lineNumber++
+		line := scanner.Text()
+
+		//Parse the line
+		domain := parseHostsLine(line)
+		if domain != "" {
+			b.Add(domain)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	log.Printf("Loaded %d domains from %s", b.Count(), filepath)
+	return nil
+}
+
+func parseHostsLine(line string) string {
+	// Remove comments
+	if idx := strings.Index(line, "#"); idx != -1 {
+		line = line[:idx]
+	}
+
+	// Trim whitespace
+	line = strings.TrimSpace(line)
+
+	// skip empty lines
+	if line == "" {
+		return ""
+	}
+
+	// Split by whitespaces: "0.0.0.0 ads.com" -> ["0.0.0.0", "ads.com"]
+	parts := strings.Fields(line)
+
+	// Need at least IP and domain
+	if len(parts) < 2 {
+		return ""
+	}
+
+	// Return the domain (second part)
+	// parts[0] is the IP (0.0.0.0)
+	// parts[1] is the domain we want
+	return parts[1]
 }
 
 // normalization converts domain to standard format
