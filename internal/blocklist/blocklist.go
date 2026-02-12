@@ -1,6 +1,7 @@
 package blocklist
 
 import (
+	"strings"
 	"sync"
 )
 
@@ -18,8 +19,21 @@ func NewBlocklist() *Blocklist {
 	}
 }
 
+// normalization converts domain to standard format
+func normalizeDomain(domain string) string {
+	domain = strings.ToLower(domain)
+
+	domain = strings.TrimSuffix(domain, ".")
+
+	domain = strings.TrimSpace(domain)
+
+	return domain
+}
+
 // Add adds a domain to the blocklist
 func (b *Blocklist) Add(domain string) {
+	domain = normalizeDomain(domain)
+
 	b.mv.Lock()
 	defer b.mv.Unlock()
 
@@ -31,6 +45,8 @@ func (b *Blocklist) Add(domain string) {
 
 // IsBlocked checks if a domain is in the blocklist
 func (b *Blocklist) IsBlocked(domain string) bool {
+	domain = normalizeDomain(domain)
+
 	b.mv.RLock()
 	defer b.mv.RUnlock()
 
