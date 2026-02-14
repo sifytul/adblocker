@@ -12,9 +12,10 @@ upstream:
 
 blocklist:
   sources:
-    - "blocklists/test-blocklist.txt"
-    - "blocklists/ads.txt"
-    - "blocklists/trackers.txt"
+    - "blocklists/stevenblack.txt"
+    - "blocklists/peter-lowe.txt"
+    - "blocklists/custom.txt"
+    - "blocklists/adult-blocking.txt"
 
 logging:
   level: "info"
