@@ -1,0 +1,23 @@
+server:
+  listen_address: "0.0.0.0:53"
+  protocol: "udp"
+
+upstream:
+  servers:
+    - "8.8.8.8:53"
+    - "1.1.1.1:53"
+    - "9.9.9.9:53"
+
+  timeout: 3
+
+blocklist:
+  sources:
+    - "blocklists/test-blocklist.txt"
+    - "blocklists/ads.txt"
+    - "blocklists/trackers.txt"
+
+logging:
+  level: "info"
+  log_queries: true
+  log_blocked: true
+  output_file: "logs/dns-query.log"
