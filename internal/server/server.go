@@ -3,9 +3,7 @@ package server
 import (
 	"adblocker/internal/blocklist"
 	"adblocker/internal/config"
-	"adblocker/internal/logger"
 	"adblocker/internal/resolver"
-	"adblocker/internal/stats"
 	"log"
 	"net"
 
@@ -17,17 +15,13 @@ type DNSServer struct {
 	server *dns.Server // poiner to dns.Server
 	resolver *resolver.UpstreamResolver // pointer to resolver
 	blocklist *blocklist.Blocklist
-	logger *logger.Logger
-	stats *stats.Stats
 }
 
-func NewDNSServer(cfg *config.Config, log *logger.Logger) *DNSServer {
+func NewDNSServer(cfg *config.Config) *DNSServer {
 	return &DNSServer{
 		config: cfg,
 		resolver: resolver.NewUpstreamResolver(cfg.Upstream.Servers[0]),
 		blocklist: blocklist.NewBlocklist(),
-		logger: log,
-		stats: stats.NewStats(),
 	}
 }
 
@@ -84,7 +78,6 @@ func (s *DNSServer) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 	question := r.Question[0]
 	domain := question.Name
 	qtype := question.Qtype // Query type (A, AAAA, CNAME etc.)
-	clientIP := w.RemoteAddr().String()
 
 	log.Printf("Query for domain: %s, type: %s", domain, dns.TypeToString[qtype])
 
@@ -92,33 +85,14 @@ func (s *DNSServer) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 	if s.blocklist.IsBlocked(domain) {
 		log.Printf("BLOCKED: %s", domain)
 
-		// Log blocked query
-		if s.config.Logging.LogBlocked {
-			s.logger.Query(domain, true, clientIP)
-		}
-
-		// Record stats
-		s.stats.RecordQuery(true)
-
 
 		// create response with 0.0.0.0
 		response := s.createBlockedResponse(r)
 		w.WriteMsg(response)
 		return
 	}
-
-	// Log allowed query
-	if s.config.Logging.LogQueries {
-		s.logger.Query(domain, false, clientIP)
-	}
-
-	// Record stats
-	s.stats.RecordQuery(false)
-
 	response, err := s.resolver.Resolve(r)
 	if err != nil {
-		s.logger.Error("Failed to resolve %s: %v", domain, err)
-		s.stats.RecordError()
 		//send error response
 		dns.HandleFailed(w, r)
 		return
@@ -127,9 +101,6 @@ func (s *DNSServer) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 	w.WriteMsg(response)
 }
 
-func (s *DNSServer) GetStats() stats.StatsSnapshot {
-	return s.stats.GetStats()
-}
 
 // createBlockedResponse returns a DNS response with 0.0.0.0
 func (s *DNSServer) createBlockedResponse(request *dns.Msg) *dns.Msg {
