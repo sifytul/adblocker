@@ -52,7 +52,7 @@ godnsblock/
 │   ├── server/
 │   │   └── server.go            # ✅ Updated: Uses config, logger, stats
 │   │
-│   ├── blocklist/
+│   ├── blocklists/
 │   │   ├── blocklist.go         # Same as Phase 2
 │   │   └── loader.go            # Same as Phase 2
 │   │
@@ -123,6 +123,7 @@ blocklist:
     - "blocklists/test-blocklist.txt"
     - "blocklists/ads.txt"
     - "blocklists/trackers.txt"
+    - "blocklists/adult-blocking.txt"
 
 logging:
   # Log level: "debug", "info", "warn", "error"
