@@ -27,3 +27,6 @@ go.work.sum
 # Editor/IDE specific files (optional, can be added to a global gitignore instead)
 # .idea/
 # .vscode/
+
+# log files
+*.log
