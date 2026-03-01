@@ -2,6 +2,7 @@ package server
 
 import (
 	"adblocker/internal/blocklist"
+	"adblocker/internal/cache"
 	"adblocker/internal/config"
 	"adblocker/internal/logger"
 	"adblocker/internal/resolver"
@@ -17,6 +18,7 @@ type DNSServer struct {
 	server *dns.Server // poiner to dns.Server
 	resolver *resolver.UpstreamResolver // pointer to resolver
 	blocklist *blocklist.Blocklist
+	cache *cache.Cache
 	logger *logger.Logger
 	stats *stats.Stats
 }
@@ -26,6 +28,7 @@ func NewDNSServer(cfg *config.Config, log *logger.Logger) *DNSServer {
 		config: cfg,
 		resolver: resolver.NewUpstreamResolver(cfg.Upstream.Servers[0]),
 		blocklist: blocklist.NewBlocklist(),
+		cache: cache.NewCache(),
 		logger: log,
 		stats: stats.NewStats(),
 	}
@@ -115,7 +118,21 @@ func (s *DNSServer) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 	// Record stats
 	s.stats.RecordQuery(false)
 
+	exists, ARecord := s.cache.Get(domain)
+
+	if exists {
+		s.logger.Info("Served from cache %s", domain)
+		s.stats.RecordCachedQuery(true)
+
+		// create response with cached A record
+		response := s.createCachedResponse(r, ARecord)
+		w.WriteMsg(response)
+		return
+	}
+
 	response, err := s.resolver.Resolve(r)
+
+
 	if err != nil {
 		s.logger.Error("Failed to resolve %s: %v", domain, err)
 		s.stats.RecordError()
@@ -123,7 +140,7 @@ func (s *DNSServer) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 		dns.HandleFailed(w, r)
 		return
 	}
-
+	s.cache.Add(response)
 	w.WriteMsg(response)
 }
 
@@ -148,6 +165,29 @@ func (s *DNSServer) createBlockedResponse(request *dns.Msg) *dns.Msg {
 				Ttl: 300,
 			},
 			A: net.ParseIP("0.0.0.0"),
+		}
+		response.Answer = append(response.Answer, rr)
+	}
+	return response
+}
+
+// createCachedResponse returns a DNS response with cached ARecord
+func (s *DNSServer) createCachedResponse(request *dns.Msg, ARecord string) *dns.Msg {
+	response := new(dns.Msg)
+	response.SetReply(request)
+
+	// Get the question
+	question := request.Question[0]
+
+	if question.Qtype == dns.TypeA {
+		rr := &dns.A{
+			Hdr: dns.RR_Header{
+				Name: question.Name,
+				Rrtype: dns.TypeA,
+				Class: dns.ClassINET,
+				Ttl: 300,
+			},
+			A: net.ParseIP(ARecord),
 		}
 		response.Answer = append(response.Answer, rr)
 	}
