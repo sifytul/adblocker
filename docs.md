@@ -10,7 +10,7 @@ A lightweight, efficient DNS-based ad blocker written in Go. Block ads, trackers
 
 ## 🚀 Features
 
-✅ **Implemented (Phase 1 & 2)**
+✅ **Implemented**
 
 - DNS server with UDP protocol support
 - Domain blocklist management with O(1) lookup
@@ -19,18 +19,18 @@ A lightweight, efficient DNS-based ad blocker written in Go. Block ads, trackers
 - Hosts file format support
 - Thread-safe concurrent query handling
 - Returns `0.0.0.0` for blocked domains
-
-🚧 **In Progress**
-
 - YAML configuration file support
 - Command-line flags
 - Structured logging with levels
 - Query statistics tracking
 - Multiple blocklist sources
 
-📋 **Planned**
+🚧 **In Progress**
 
 - DNS response caching
+
+📋 **Planned**
+
 - Web UI for management
 - Remote blocklist auto-updates
 - Whitelist support
