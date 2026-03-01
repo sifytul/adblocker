@@ -14,7 +14,6 @@ type Stats struct {
     TotalQueries   int64
     BlockedQueries int64
     AllowedQueries int64
-    QueriesFromCache int64
     Errors         int64
 }
 
@@ -38,13 +37,6 @@ func (s *Stats) RecordQuery(blocked bool) {
     }
 }
 
-func (s *Stats) RecordCachedQuery(fromCache bool) {
-    s.mu.Lock()
-    defer s.mu.Unlock()
-
-    s.QueriesFromCache++
-}
-
 // RecordError records an error
 func (s *Stats) RecordError() {
     s.mu.Lock()
@@ -64,11 +56,9 @@ func (s *Stats) GetStats() StatsSnapshot {
         Uptime:         uptime,
         TotalQueries:   s.TotalQueries,
         BlockedQueries: s.BlockedQueries,
-        QueriesFromCache: s.QueriesFromCache,
         AllowedQueries: s.AllowedQueries,
         Errors:         s.Errors,
         BlockedPercent: s.calculateBlockedPercent(),
-        CachedPercent: s.calculateCachedPercent(),
         QueriesPerSec:  s.calculateQPS(uptime),
     }
 }
@@ -79,10 +69,8 @@ type StatsSnapshot struct {
     TotalQueries   int64
     BlockedQueries int64
     AllowedQueries int64
-    QueriesFromCache int64
     Errors         int64
     BlockedPercent float64
-    CachedPercent  float64
     QueriesPerSec  float64
 }
 
@@ -92,14 +80,6 @@ func (s *Stats) calculateBlockedPercent() float64 {
         return 0.0
     }
     return (float64(s.BlockedQueries) / float64(s.TotalQueries)) * 100.0
-}
-
-func (s *Stats) calculateCachedPercent() float64 {
-    if s.TotalQueries == 0 {
-        return 0.0
-    }
-    return (float64(s.QueriesFromCache) / float64(s.TotalQueries)) * 100.0
-
 }
 
 // calculateQPS calculates queries per second
@@ -116,11 +96,9 @@ func (s *Stats) calculateQPS(uptime time.Duration) float64 {
 // String returns formatted stats
 func (ss StatsSnapshot) String() string {
     return fmt.Sprintf(
-        "Uptime: %s | Total: %d | Cached: %d (%.1f%%) | Blocked: %d (%.1f%%) | Allowed: %d | Errors: %d | QPS: %.2f",
+        "Uptime: %s | Total: %d | Blocked: %d (%.1f%%) | Allowed: %d | Errors: %d | QPS: %.2f",
         ss.Uptime.Round(time.Second),
         ss.TotalQueries,
-        ss.QueriesFromCache,
-        ss.CachedPercent,
         ss.BlockedQueries,
         ss.BlockedPercent,
         ss.AllowedQueries,

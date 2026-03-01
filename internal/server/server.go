@@ -9,6 +9,7 @@ import (
 	"adblocker/internal/stats"
 	"log"
 	"net"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -24,14 +25,20 @@ type DNSServer struct {
 }
 
 func NewDNSServer(cfg *config.Config, log *logger.Logger) *DNSServer {
-	return &DNSServer{
+	server := &DNSServer{
 		config: cfg,
 		resolver: resolver.NewUpstreamResolver(cfg.Upstream.Servers[0]),
 		blocklist: blocklist.NewBlocklist(),
-		cache: cache.NewCache(),
 		logger: log,
 		stats: stats.NewStats(),
 	}
+
+	if cfg.Cache.Enabled {
+		server.cache = cache.NewCache()
+		log.Info("Cache enabled (cleanup: %ds)", cfg.Cache.CleanInterval)
+	}
+
+	return server
 }
 
 // method to load blocklist
@@ -48,7 +55,13 @@ func (s *DNSServer) Start() error {
 		Handler: dns.HandlerFunc(s.handleQuery),
 	}
 
-	log.Printf("Starting DNS server on %s", s.config.Server.ListenAddress)
+	s.logger.Info("Starting DNS server on %s", s.config.Server.ListenAddress)
+
+	// Start cache cleanup goroutine if cache is enabled
+	if s.config.Cache.Enabled && s.cache != nil {
+		go s.cacheCleanupLoop()
+	}
+
 
 	// ListenAndServe blocks, so run in background
 	go func() {
@@ -74,9 +87,6 @@ func (s *DNSServer) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 	// r (request) contains the DNS query
 	// w (writer) is used to send response
 
-	
-
-	log.Printf("Received query from %s", w.RemoteAddr())
 
 	if len(r.Question) == 0 {
 		log.Printf("Empty query received")
@@ -91,11 +101,8 @@ func (s *DNSServer) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 
 	log.Printf("Query for domain: %s, type: %s", domain, dns.TypeToString[qtype])
 
-	// Check Blocklist - This is the key part
+	// 1. Check Blocklist
 	if s.blocklist.IsBlocked(domain) {
-		log.Printf("BLOCKED: %s", domain)
-
-		// Log blocked query
 		if s.config.Logging.LogBlocked {
 			s.logger.Query(domain, true, clientIP)
 		}
@@ -115,37 +122,63 @@ func (s *DNSServer) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 		s.logger.Query(domain, false, clientIP)
 	}
 
-	// Record stats
-	s.stats.RecordQuery(false)
+	// 2. Check cache if enabled
+	if s.config.Cache.Enabled && s.cache != nil {
+		if cachedResponse, found := s.cache.Get(domain, qtype); found {
+			s.logger.Debug("Cache HIT: %s (type: %s)", domain, dns.TypeToString[qtype])
 
-	exists, ARecord := s.cache.Get(domain)
+			// Update message ID to match the query
+			cachedResponse.Id = r.Id
 
-	if exists {
-		s.logger.Info("Served from cache %s", domain)
-		s.stats.RecordCachedQuery(true)
+			w.WriteMsg(cachedResponse)
 
-		// create response with cached A record
-		response := s.createCachedResponse(r, ARecord)
-		w.WriteMsg(response)
-		return
+			if s.config.Logging.LogQueries {
+				s.logger.Query(domain, false, clientIP)
+			}
+			s.stats.RecordQuery(false)
+			return
+		}
+
+		s.logger.Debug("Cache MISS: %s (type: %s)", domain, dns.TypeToString[qtype])
 	}
 
+	// 3. Query upstream
+	if s.config.Logging.LogQueries {
+		s.logger.Query(domain, false, clientIP)
+	}
+	s.stats.RecordQuery(false)
+
 	response, err := s.resolver.Resolve(r)
-
-
 	if err != nil {
 		s.logger.Error("Failed to resolve %s: %v", domain, err)
 		s.stats.RecordError()
-		//send error response
 		dns.HandleFailed(w, r)
 		return
 	}
-	s.cache.Add(response)
+
+	// 4. Store in cache if enabled
+	if s.config.Cache.Enabled && s.cache != nil {
+		s.cache.Add(domain, qtype, response)
+		
+		// Log TTL for debugging
+		if len(response.Answer) > 0 {
+			ttl := response.Answer[0].Header().Ttl
+			s.logger.Debug("Cached: %s (TTL: %ds)", domain, ttl)
+		}
+	}
+
 	w.WriteMsg(response)
 }
 
 func (s *DNSServer) GetStats() stats.StatsSnapshot {
 	return s.stats.GetStats()
+}
+
+func (s *DNSServer) GetCacheStats() cache.CacheStats {
+	if s.cache != nil {
+		return s.cache.Stats()
+	}
+	return cache.CacheStats{}
 }
 
 // createBlockedResponse returns a DNS response with 0.0.0.0
@@ -171,25 +204,18 @@ func (s *DNSServer) createBlockedResponse(request *dns.Msg) *dns.Msg {
 	return response
 }
 
-// createCachedResponse returns a DNS response with cached ARecord
-func (s *DNSServer) createCachedResponse(request *dns.Msg, ARecord string) *dns.Msg {
-	response := new(dns.Msg)
-	response.SetReply(request)
+// cacheCleanupLoop periodically removes expired cache entries
+func (s *DNSServer) cacheCleanupLoop() {
+	interval := time.Duration(s.config.Cache.CleanInterval) * time.Second
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 
-	// Get the question
-	question := request.Question[0]
+	s.logger.Debug("Cache cleanup started (interval: %s)", interval)
 
-	if question.Qtype == dns.TypeA {
-		rr := &dns.A{
-			Hdr: dns.RR_Header{
-				Name: question.Name,
-				Rrtype: dns.TypeA,
-				Class: dns.ClassINET,
-				Ttl: 300,
-			},
-			A: net.ParseIP(ARecord),
+	for range ticker.C {
+		removed := s.cache.CleanExpired()
+		if removed > 0 {
+			s.logger.Debug("Cache cleanup: removed %d expired entries", removed)
 		}
-		response.Answer = append(response.Answer, rr)
 	}
-	return response
 }

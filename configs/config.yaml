@@ -22,3 +22,7 @@ logging:
   log_queries: true
   log_blocked: true
   output_file: "logs/dns-query.log"
+
+cache:
+  enabled: true
+  clean_interval: 300

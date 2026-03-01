@@ -83,6 +83,12 @@ func main() {
             stats := dnsServer.GetStats()
             log.Info("Statistics: %s", stats.String())
         }
+
+        // Cache statistics (if enabled)
+        if cfg.Cache.Enabled {
+            cacheStats := dnsServer.GetCacheStats()
+            log.Info("Cache statistics: %s", cacheStats.String())
+        }
     }()
     
     // Wait for interrupt signal
@@ -97,6 +103,11 @@ func main() {
     // Print final statistics
     finalStats := dnsServer.GetStats()
     log.Info("Final statistics: %s", finalStats.String())
+
+    if cfg.Cache.Enabled {
+        finalCacheStats := dnsServer.GetCacheStats()
+        log.Info("Final cache stats: %s", finalCacheStats.String())
+    }
     
     dnsServer.Stop()
     log.Info("Shutdown complete")

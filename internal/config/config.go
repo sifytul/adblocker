@@ -12,6 +12,7 @@ type Config struct {
 	Upstream UpstreamConfig `yaml:"upstream"`
 	Blocklist BlocklistConfig `yaml:"blocklist"`
 	Logging LoggingConfig `yaml:"logging"`
+	Cache CacheConfig 
 }
 
 type ServerConfig struct {
@@ -35,6 +36,11 @@ type LoggingConfig struct {
 	OutputFile string `yaml:"output_file"`
 }
 
+type CacheConfig struct {
+	Enabled bool `yaml:"enabled"`
+	CleanInterval int `yaml:"clean_interval"`
+}
+
 func DefaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -53,6 +59,10 @@ func DefaultConfig() *Config {
 			LogQueries: true,
 			LogBlocked: true,
 			OutputFile: "",
+		},
+		Cache: CacheConfig{
+			Enabled: true,
+			CleanInterval: 300,
 		},
 	}
 }
