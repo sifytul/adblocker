@@ -34,8 +34,16 @@ func NewDNSServer(cfg *config.Config, log *logger.Logger) *DNSServer {
 	}
 
 	if cfg.Cache.Enabled {
-		server.cache = cache.NewCache()
-		log.Info("Cache enabled (cleanup: %ds)", cfg.Cache.CleanInterval)
+		server.cache = cache.NewCache(cfg.Cache.MaxSize)
+		log.Info("Cache enabled (max size: %d, cleanup: %ds)", cfg.Cache.MaxSize, cfg.Cache.CleanInterval)
+
+		if cfg.Cache.MaxSize > 0 {
+			log.Info("Cache enabled (max size: %d, cleanup: %ds)",
+				cfg.Cache.MaxSize, cfg.Cache.CleanInterval)
+		} else {
+			log.Info("Cache enabled (unlimited size, cleanup: %ds)",
+				cfg.Cache.CleanInterval)
+		}
 	}
 
 	return server

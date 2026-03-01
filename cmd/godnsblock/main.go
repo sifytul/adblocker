@@ -82,13 +82,14 @@ func main() {
         for range ticker.C {
             stats := dnsServer.GetStats()
             log.Info("Statistics: %s", stats.String())
+
+            // Cache statistics (if enabled)
+            if cfg.Cache.Enabled {
+                cacheStats := dnsServer.GetCacheStats()
+                log.Info("Cache statistics: %s", cacheStats.String())
+            }
         }
 
-        // Cache statistics (if enabled)
-        if cfg.Cache.Enabled {
-            cacheStats := dnsServer.GetCacheStats()
-            log.Info("Cache statistics: %s", cacheStats.String())
-        }
     }()
     
     // Wait for interrupt signal

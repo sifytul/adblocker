@@ -38,6 +38,7 @@ type LoggingConfig struct {
 
 type CacheConfig struct {
 	Enabled bool `yaml:"enabled"`
+	MaxSize int  `yaml:"max_size"`
 	CleanInterval int `yaml:"clean_interval"`
 }
 
@@ -62,6 +63,7 @@ func DefaultConfig() *Config {
 		},
 		Cache: CacheConfig{
 			Enabled: true,
+			MaxSize: 10000,
 			CleanInterval: 300,
 		},
 	}
