@@ -57,7 +57,7 @@ func (c *Cache) Add(domain string, qtype uint16, response *dns.Msg) {
 	defer c.mu.Unlock()
 	
 	// Check if we need to enforce size limit
-	if c.maxSize > 0 && len(c.entries) >- c.maxSize {
+	if c.maxSize > 0 && len(c.entries) >= c.maxSize {
 		c.evictOne()
 	}
 
