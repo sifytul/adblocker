@@ -1,5 +1,5 @@
 server:
-  listen_address: "0.0.0.0:53"
+  listen_address: "0.0.0.0:5354"
   protocol: "udp"
 
 upstream:
