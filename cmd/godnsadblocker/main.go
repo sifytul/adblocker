@@ -23,7 +23,7 @@ func main() {
     flag.Parse()
     
     if *showVersion {
-        fmt.Println("GoDNSBlock v0.3.0")
+        fmt.Println("GoDNSAdBlocker")
         return
     }
     
@@ -51,7 +51,7 @@ func main() {
         os.Exit(1)
     }
     
-    log.Info("GoDNSBlock v0.3.0 starting...")
+    log.Info("GoDNSAdBlocker starting...")
     log.Info("Configuration loaded successfully")
     
     // Create DNS server

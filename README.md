@@ -251,10 +251,12 @@ Before starting implementation:
 ### Clone & Build
 
 ```bash
-git clone https://github.com/your-username/godnsblocker.git
-cd godnsadblocker
+git clone https://github.com/sifytul/adblocker.git
+cd adblocker
 go mod tidy
-go build -o godnsblocker
+
+# Build the application
+go build -o build/godnsadblocker cmd/godnsadblocker/main.go
 ```
 
 (Uses **miekg/dns**)
